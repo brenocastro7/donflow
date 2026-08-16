@@ -1,0 +1,57 @@
+{
+  "name": "donflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Barbershop management and appointment scheduling platform.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": "24.18.0",
+    "npm": "11.x"
+  },
+  "scripts": {
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "format": "npm run format --workspace=apps/api && npm run format --workspace=apps/web",
+    "lint": "npm run lint:api && npm run lint:web",
+    "lint:api": "npm run lint --workspace=apps/api",
+    "lint:web": "npm run lint --workspace=apps/web",
+    "start:dev": "npm run start:dev --workspace=apps/api",
+    "start:web": "npm run dev --workspace=apps/web",
+    "bootstrap:master": "npm run bootstrap:master --workspace=apps/api",
+    "test": "npm run test:api && npm run test:web",
+    "test:api": "npm test --workspace=apps/api -- --runInBand",
+    "test:web": "npm test --workspace=apps/web",
+    "test:e2e": "npm run test:e2e --workspace=apps/api -- --runInBand",
+    "test:integration": "npm run test:integration --workspace=apps/api -- --runInBand",
+    "verify": "npm run build && npm run lint && npm test && npm run test:e2e"
+  },
+  "allowScripts": {
+    "prisma@7.9.1": true,
+    "@prisma/engines@7.9.1": true,
+    "unrs-resolver@1.12.2": true,
+    "argon2@0.45.1": true
+  },
+  "overrides": {
+    "brace-expansion": "$brace-expansion",
+    "fast-uri": "$fast-uri",
+    "js-yaml": "$js-yaml",
+    "minimatch@9.0.9": {
+      "brace-expansion": "2.1.4"
+    },
+    "minimatch@10.2.6": {
+      "brace-expansion": "5.0.9"
+    },
+    "@nestjs/swagger": {
+      "js-yaml": "$js-yaml"
+    }
+  },
+  "devDependencies": {
+    "brace-expansion": "2.1.4",
+    "fast-uri": "3.1.5",
+    "js-yaml": "4.3.1"
+  }
+}

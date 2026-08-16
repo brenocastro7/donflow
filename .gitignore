@@ -1,0 +1,45 @@
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Private keys and certificates
+*.key
+*.pem
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Operating System
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local AI assistant metadata
+**/.agents/
+**/.windsurf/
+**/skills-lock.json
+
+# .claude/settings.json and .claude/hooks/*.mjs ARE committed on purpose (team-wide
+# safety hook, see .claude/hooks/block-destructive-db.mjs) — only the personal/runtime
+# parts of .claude/ stay untracked:
+.claude/settings.local.json
+.claude/hooks/state/

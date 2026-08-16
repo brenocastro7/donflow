@@ -1,0 +1,168 @@
+/*
+ * Every page/component has been migrated to Tailwind utility classes (Fase 3
+ * complete) — Preflight (Tailwind's base CSS reset) is now safe to enable,
+ * since nothing depends on browser-default spacing anymore.
+ */
+@import 'tailwindcss';
+
+/*
+ * Design tokens extracted from the pre-Tailwind stylesheets. Pages still
+ * being migrated (see the folder-structure/Tailwind migration plan) keep
+ * their own local `:root` overrides for now; these are the canonical,
+ * shared versions new/migrated code should use via the generated
+ * `bg-*`/`text-*`/`border-*`/`font-*` utilities.
+ */
+@theme {
+  --color-background: #080907;
+  --color-panel: #11120f;
+  --color-panel-alt: #0f100d;
+  --color-border: rgba(226, 216, 195, 0.11);
+  --color-text: #f5f1e9;
+  --color-muted: #93958d;
+  --color-gold: #c89a4b;
+  --color-gold-light: #e4bb72;
+  /* Distinct, slightly lighter gold literal used directly (not via the
+     `--gold` var) across most pages outside the former agenda-page.css —
+     kept as its own token instead of merging with --color-gold, to avoid
+     shifting any existing color. */
+  --color-gold-accent: #d3a75b;
+
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+
+  /*
+   * shadcn/ui semantic tokens, mapped onto the palette above so every
+   * primitive (Button, Dialog, Tabs, ...) matches the barbershop look by
+   * default. This app has no light/dark toggle, so these are set once
+   * (no `.dark` class variant needed).
+   */
+  --color-foreground: var(--color-text);
+  --color-card: var(--color-panel);
+  --color-card-foreground: var(--color-text);
+  --color-popover: var(--color-panel);
+  --color-popover-foreground: var(--color-text);
+  --color-primary: var(--color-gold);
+  --color-primary-foreground: #17130d;
+  --color-secondary: var(--color-panel);
+  --color-secondary-foreground: var(--color-text);
+  --color-muted-foreground: var(--color-muted);
+  --color-accent: #181910;
+  --color-accent-foreground: var(--color-text);
+  --color-destructive: #cf707e;
+  --color-destructive-foreground: #17130d;
+  --color-input: var(--color-border);
+  --color-ring: var(--color-gold);
+
+  --animate-rating-slide-in: rating-slide-in 0.25s ease;
+  --radius: 0.6rem;
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 0.15rem);
+  --radius-xl: calc(var(--radius) + 0.4rem);
+}
+
+/* Repeated gradients found across the app; reused instead of retyping the
+   same linear-gradient() in every migrated component. */
+@utility bg-gold-gradient {
+  background: linear-gradient(135deg, #e0b96f, #a87934);
+}
+@utility bg-card-surface {
+  background: linear-gradient(145deg, #151612, #0d0e0b);
+}
+@utility scrollbar-gold {
+  scrollbar-color: #76572c #11120f;
+  scrollbar-width: thin;
+}
+
+@keyframes rating-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(18%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+:root {
+  --barbershop-cover-landscape: url('/barbershop-cover-landscape.png');
+  --barbershop-cover-portrait: url('/barbershop-cover-portrait.png');
+  --barbershop-cover-admin: url('/barbershop-cover-admin.png');
+  --barbershop-cover-image: var(--barbershop-cover-landscape);
+  /* Staff layout sidebar width, referenced via var(--sidebar) in staff-layout.tsx
+     because it must stay in sync between the fixed sidebar's width and the
+     content area's margin-left. */
+  --sidebar: 16.5rem;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --barbershop-cover-image: var(--barbershop-cover-portrait);
+  }
+}
+
+@media (max-width: 980px) {
+  :root {
+    --sidebar: 14rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer base {
+  html,
+  body {
+    min-width: 320px;
+    min-height: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    color: var(--color-text);
+    background: var(--color-background);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: #f5f1e9 !important;
+    caret-color: #f5f1e9;
+    box-shadow: 0 0 0 1000px #0b0c0a inset !important;
+    transition: background-color 9999s ease-out 0s;
+  }
+
+  input:autofill {
+    color: #f5f1e9 !important;
+    background: #0b0c0a !important;
+  }
+}

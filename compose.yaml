@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: donflow-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-donflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-donflow}
+      POSTGRES_DB: ${POSTGRES_DB:-donflow}
+
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+
+    volumes:
+      - donflow-postgres-data:/var/lib/postgresql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-donflow} -d $${POSTGRES_DB:-donflow}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  donflow-postgres-data:

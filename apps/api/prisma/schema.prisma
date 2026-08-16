@@ -1,0 +1,378 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CUSTOMER
+  BARBER
+  MASTER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum AppointmentOrigin {
+  CUSTOMER
+  BARBER
+  MASTER
+}
+
+enum NotificationType {
+  EMAIL_VERIFICATION
+  APPOINTMENT_CONFIRMATION
+  APPOINTMENT_CANCELLATION
+  APPOINTMENT_REMINDER
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id                          String                  @id @default(uuid()) @db.Uuid
+  name                        String                  @db.VarChar(120)
+  email                       String?                 @unique @db.VarChar(254)
+  pendingEmail                String?                 @unique @map("pending_email") @db.VarChar(254)
+  phone                       String?                 @unique @db.VarChar(16)
+  passwordHash                String                  @map("password_hash") @db.VarChar(255)
+  emailVerifiedAt             DateTime?               @map("email_verified_at") @db.Timestamptz(3)
+  role                        UserRole                @default(CUSTOMER)
+  status                      UserStatus              @default(ACTIVE)
+  profileImage                Bytes?                  @map("profile_image")
+  profileImageMimeType        String?                 @map("profile_image_mime_type") @db.VarChar(32)
+  profileImageKey             String?                 @unique @map("profile_image_key") @db.VarChar(255)
+  mfaSecretEncrypted          String?                 @map("mfa_secret_encrypted") @db.VarChar(512)
+  mfaEnabledAt                DateTime?               @map("mfa_enabled_at") @db.Timestamptz(3)
+  mfaRecoveryCodeHashes       Json?                   @map("mfa_recovery_code_hashes")
+  failedLoginAttempts         Int                     @default(0) @map("failed_login_attempts")
+  loginLockedUntil            DateTime?               @map("login_locked_until") @db.Timestamptz(3)
+  transactionalEmailConsentAt DateTime?               @map("transactional_email_consent_at") @db.Timestamptz(3)
+  customerBookingBlocked      Boolean                 @default(false) @map("customer_booking_blocked")
+  customerBookingLimited      Boolean                 @default(false) @map("customer_booking_limited")
+  barberProfile               BarberProfile?
+  emailVerificationToken      EmailVerificationToken?
+  passwordResetToken          PasswordResetToken?
+  customerAppointments        Appointment[]           @relation("CustomerAppointments")
+  auditLogs                   AuditLog[]              @relation("AuditActor")
+  appointmentHistory          AppointmentHistory[]    @relation("HistoryActor")
+  sentBarberInvitations       BarberInvitation[]      @relation("BarberInvitationSender")
+  reviews                     Review[]                @relation("CustomerReviews")
+  inAppNotifications          InAppNotification[]
+  authSessions                AuthSession[]
+  createdAt                   DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("users")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.Char(64)
+  csrfTokenHash    String    @map("csrf_token_hash") @db.Char(64)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  userAgent        String?   @map("user_agent") @db.VarChar(300)
+  ipHash           String?   @map("ip_hash") @db.Char(64)
+  persistent       Boolean   @default(false)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model ShopSettings {
+  id            Int      @id @default(1)
+  address       String?  @db.VarChar(300)
+  businessHours Json     @default("[]") @map("business_hours")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("shop_settings")
+}
+
+model MonthlyDashboardSnapshot {
+  id        String   @id @default(uuid()) @db.Uuid
+  month     String   @db.Char(7)
+  scopeKey  String   @map("scope_key") @db.VarChar(80)
+  data      Json
+  closedAt  DateTime @default(now()) @map("closed_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([month, scopeKey])
+  @@index([month])
+  @@map("monthly_dashboard_snapshots")
+}
+
+model BarberInvitation {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(254)
+  tokenHash       String   @unique @map("token_hash") @db.Char(64)
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(3)
+  invitedByUserId String   @map("invited_by_user_id") @db.Uuid
+  invitedBy       User     @relation("BarberInvitationSender", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("barber_invitations")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model BarberProfile {
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @unique @map("user_id") @db.Uuid
+  displayName    String?         @map("display_name") @db.VarChar(120)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  services       BarberService[]
+  businessHours  BusinessHour[]
+  scheduleBlocks ScheduleBlock[]
+  appointments   Appointment[]
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("barber_profiles")
+}
+
+model ServiceTemplate {
+  id              String          @id @default(uuid()) @db.Uuid
+  name            String          @db.VarChar(120)
+  description     String?         @db.VarChar(500)
+  durationMinutes Int             @map("duration_minutes")
+  price           Decimal         @db.Decimal(10, 2)
+  isActive        Boolean         @default(true) @map("is_active")
+  barberServices  BarberService[]
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("service_templates")
+}
+
+model BarberService {
+  id                    String           @id @default(uuid()) @db.Uuid
+  barberProfileId       String           @map("barber_profile_id") @db.Uuid
+  serviceTemplateId     String?          @map("service_template_id") @db.Uuid
+  sourceBarberServiceId String?          @map("source_barber_service_id") @db.Uuid
+  name                  String           @db.VarChar(120)
+  description           String?          @db.VarChar(500)
+  durationMinutes       Int              @map("duration_minutes")
+  price                 Decimal          @db.Decimal(10, 2)
+  isActive              Boolean          @default(true) @map("is_active")
+  barberProfile         BarberProfile    @relation(fields: [barberProfileId], references: [id], onDelete: Restrict)
+  serviceTemplate       ServiceTemplate? @relation(fields: [serviceTemplateId], references: [id], onDelete: SetNull)
+  sourceBarberService   BarberService?   @relation("ServiceAdoptions", fields: [sourceBarberServiceId], references: [id], onDelete: SetNull)
+  adoptedServices       BarberService[]  @relation("ServiceAdoptions")
+  appointments          Appointment[]
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([barberProfileId, sourceBarberServiceId])
+  @@index([barberProfileId, isActive])
+  @@map("barber_services")
+}
+
+model BusinessHour {
+  id              String        @id @default(uuid()) @db.Uuid
+  barberProfileId String        @map("barber_profile_id") @db.Uuid
+  dayOfWeek       DayOfWeek     @map("day_of_week")
+  startMinute     Int           @map("start_minute")
+  endMinute       Int           @map("end_minute")
+  barberProfile   BarberProfile @relation(fields: [barberProfileId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([barberProfileId, dayOfWeek, startMinute])
+  @@index([barberProfileId, dayOfWeek])
+  @@map("business_hours")
+}
+
+model ScheduleBlock {
+  id              String        @id @default(uuid()) @db.Uuid
+  barberProfileId String        @map("barber_profile_id") @db.Uuid
+  startsAt        DateTime      @map("starts_at") @db.Timestamptz(3)
+  endsAt          DateTime      @map("ends_at") @db.Timestamptz(3)
+  reason          String?       @db.VarChar(250)
+  barberProfile   BarberProfile @relation(fields: [barberProfileId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([barberProfileId, startsAt, endsAt])
+  @@map("schedule_blocks")
+}
+
+model Appointment {
+  id                  String               @id @default(uuid()) @db.Uuid
+  customerUserId      String?              @map("customer_user_id") @db.Uuid
+  localCustomerName   String?              @map("local_customer_name") @db.VarChar(120)
+  localCustomerPhone  String?              @map("local_customer_phone") @db.VarChar(16)
+  barberProfileId     String               @map("barber_profile_id") @db.Uuid
+  barberServiceId     String               @map("barber_service_id") @db.Uuid
+  startsAt            DateTime             @map("starts_at") @db.Timestamptz(3)
+  endsAt              DateTime             @map("ends_at") @db.Timestamptz(3)
+  status              AppointmentStatus    @default(CONFIRMED)
+  origin              AppointmentOrigin
+  serviceNameSnapshot String               @map("service_name_snapshot") @db.VarChar(120)
+  durationSnapshot    Int                  @map("duration_snapshot")
+  priceSnapshot       Decimal              @map("price_snapshot") @db.Decimal(10, 2)
+  notes               String?              @db.VarChar(500)
+  cancellationReason  String?              @map("cancellation_reason") @db.VarChar(500)
+  cancelledAt         DateTime?            @map("cancelled_at") @db.Timestamptz(3)
+  autoCompletedAt     DateTime?            @map("auto_completed_at") @db.Timestamptz(3)
+  noShowJustification String?              @map("no_show_justification") @db.VarChar(500)
+  version             Int                  @default(1)
+  customer            User?                @relation("CustomerAppointments", fields: [customerUserId], references: [id], onDelete: Restrict)
+  barberProfile       BarberProfile        @relation(fields: [barberProfileId], references: [id], onDelete: Restrict)
+  barberService       BarberService        @relation(fields: [barberServiceId], references: [id], onDelete: Restrict)
+  history             AppointmentHistory[]
+  notifications       Notification[]
+  inAppNotifications  InAppNotification[]
+  review              Review?
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([customerUserId, status])
+  @@index([barberProfileId, startsAt])
+  @@map("appointments")
+}
+
+model Review {
+  id             String      @id @default(uuid()) @db.Uuid
+  appointmentId  String      @unique @map("appointment_id") @db.Uuid
+  customerUserId String      @map("customer_user_id") @db.Uuid
+  rating         Int
+  comment        String?     @db.VarChar(500)
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  customer       User        @relation("CustomerReviews", fields: [customerUserId], references: [id], onDelete: Restrict)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@map("reviews")
+}
+
+model AppointmentHistory {
+  id            String      @id @default(uuid()) @db.Uuid
+  appointmentId String      @map("appointment_id") @db.Uuid
+  actorUserId   String?     @map("actor_user_id") @db.Uuid
+  action        String      @db.VarChar(80)
+  previousData  Json?       @map("previous_data")
+  currentData   Json?       @map("current_data")
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  actor         User?       @relation("HistoryActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([appointmentId, createdAt])
+  @@map("appointment_history")
+}
+
+model Notification {
+  id                 String             @id @default(uuid()) @db.Uuid
+  appointmentId      String?            @map("appointment_id") @db.Uuid
+  appointmentVersion Int?               @map("appointment_version")
+  type               NotificationType
+  status             NotificationStatus @default(PENDING)
+  recipient          String             @db.VarChar(254)
+  payload            Json
+  scheduledAt        DateTime           @map("scheduled_at") @db.Timestamptz(3)
+  sentAt             DateTime?          @map("sent_at") @db.Timestamptz(3)
+  attempts           Int                @default(0)
+  providerMessageId  String?            @map("provider_message_id") @db.VarChar(255)
+  lastError          String?            @map("last_error") @db.VarChar(500)
+  appointment        Appointment?       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([appointmentId, appointmentVersion, type, recipient])
+  @@index([status, scheduledAt])
+  @@map("notifications")
+}
+
+model InAppNotification {
+  id                 String           @id @default(uuid()) @db.Uuid
+  userId             String           @map("user_id") @db.Uuid
+  appointmentId      String?          @map("appointment_id") @db.Uuid
+  appointmentVersion Int?             @map("appointment_version")
+  type               NotificationType
+  title              String           @db.VarChar(120)
+  message            String           @db.VarChar(500)
+  scheduledAt        DateTime         @default(now()) @map("scheduled_at") @db.Timestamptz(3)
+  readAt             DateTime?        @map("read_at") @db.Timestamptz(3)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment        Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([userId, appointmentId, appointmentVersion, type])
+  @@index([userId, scheduledAt, readAt])
+  @@map("in_app_notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  action      String   @db.VarChar(80)
+  targetType  String   @map("target_type") @db.VarChar(80)
+  targetId    String   @map("target_id") @db.Uuid
+  metadata    Json?
+  actor       User     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}

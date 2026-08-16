@@ -1,0 +1,10 @@
+
+# External dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Test reports
+coverage/

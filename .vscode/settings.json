@@ -1,0 +1,9 @@
+{
+  "eslint.workingDirectories": [
+    {
+      "directory": "apps/api",
+      "changeProcessCWD": true
+    }
+  ],
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

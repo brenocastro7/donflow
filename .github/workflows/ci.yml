@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: donflow_ci
+          POSTGRES_PASSWORD: donflow_ci
+          POSTGRES_DB: donflow_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U donflow_ci -d donflow_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://donflow_ci:donflow_ci@localhost:5432/donflow_ci?schema=public
+      RUN_DATABASE_INTEGRATION: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm exec --workspace=apps/api -- prisma generate
+
+      - name: Run project verification
+        run: npm run verify
+
+      - name: Apply PostgreSQL migrations
+        run: npm exec --workspace=apps/api -- prisma migrate deploy
+
+      - name: Run real database integration flow
+        run: npm run test:integration
+
+      - name: Reject critical production dependency vulnerabilities
+        run: npm audit --omit=dev --audit-level=critical
+
+  codeql:
+    name: CodeQL security analysis
+    runs-on: ubuntu-latest
+    # Code scanning requires GitHub Advanced Security, unavailable for private repos on
+    # this plan. Non-blocking until the repo goes public or the plan is upgraded.
+    continue-on-error: true
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3

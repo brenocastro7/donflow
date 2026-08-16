@@ -1,0 +1,44 @@
+name: Database backup
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Backup production database to R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Dump production database
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          docker run --rm \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -v "$PWD:/backup" \
+            postgres:18 \
+            sh -c 'pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > /backup/dump.sql.gz'
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          ENDPOINT_URL: ${{ secrets.BACKUP_R2_ENDPOINT }}
+          BUCKET: ${{ secrets.BACKUP_R2_BUCKET }}
+        run: |
+          DATE="$(date -u +%Y-%m-%d)"
+          DAY="$(date -u +%d)"
+
+          aws --endpoint-url "$ENDPOINT_URL" s3 cp dump.sql.gz \
+            "s3://$BUCKET/daily/$DATE.sql.gz"
+
+          if [ "$DAY" = "01" ]; then
+            aws --endpoint-url "$ENDPOINT_URL" s3 cp dump.sql.gz \
+              "s3://$BUCKET/monthly/$DATE.sql.gz"
+          fi
